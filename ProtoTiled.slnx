@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="ProtoTiled.vcxproj" Id="8d2e723d-8626-41af-a2cf-b67fc3c01f14" />
+</Solution>
