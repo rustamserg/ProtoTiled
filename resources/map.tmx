@@ -74,7 +74,7 @@
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 </data>
  </layer>
- <objectgroup id="7" name="ObjectsData">
+ <objectgroup id="7" name="ObjectsData" locked="1">
   <object id="5" name="Start" type="SpawnPoint" x="103.5" y="233"/>
   <object id="6" name="Spikes" type="Damage" x="248" y="200"/>
   <object id="7" type="Obstacle" x="328" y="184.5"/>
