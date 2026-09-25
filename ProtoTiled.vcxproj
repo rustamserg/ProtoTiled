@@ -144,10 +144,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="TileLayer.cpp" />
     <ClCompile Include="Tileset.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource_dir.h" />
+    <ClInclude Include="TileLayer.h" />
     <ClInclude Include="Tileset.h" />
   </ItemGroup>
   <ItemGroup>
