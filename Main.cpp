@@ -89,8 +89,6 @@ int main(void)
         map.Draw();
         if (showObjects) map.DrawObjectsDebug();
 
-        const auto& tile = tileset.GetTile(45);
-        DrawTextureRec(tileset.GetTexture(), { (float)tile.x, (float)tile.y, (float)tile.width, (float)tile.height }, { GetScreenWidth() / 2.f, GetScreenHeight() / 2.f }, WHITE);
         EndMode2D();
 
         DrawCircleV(GetMousePosition(), 4, DARKGRAY);
