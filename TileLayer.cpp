@@ -72,14 +72,12 @@ bool TileLayer::ParseCsv(const char* text)
     return m_data.size() == static_cast<size_t>(m_width * m_height);
 }
 
-TileLayer::Cell TileLayer::GetCell(int x, int y) const
+TileLayer::Cell TileLayer::DecodeGid(uint32_t rawGid)
 {
-    const uint32_t raw = GetRawGid(x, y);
-
     Cell cell{};
-    cell.gid = raw & ~FLAGS_MASK;
-    cell.flippedHorizontally = (raw & FLIPPED_HORIZONTALLY_FLAG) != 0;
-    cell.flippedVertically = (raw & FLIPPED_VERTICALLY_FLAG) != 0;
-    cell.flippedDiagonally = (raw & FLIPPED_DIAGONALLY_FLAG) != 0;
+    cell.gid = rawGid & ~FLAGS_MASK;
+    cell.flippedHorizontally = (rawGid & FLIPPED_HORIZONTALLY_FLAG) != 0;
+    cell.flippedVertically = (rawGid & FLIPPED_VERTICALLY_FLAG) != 0;
+    cell.flippedDiagonally = (rawGid & FLIPPED_DIAGONALLY_FLAG) != 0;
     return cell;
 }

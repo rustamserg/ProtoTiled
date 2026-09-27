@@ -42,6 +42,7 @@ int main(void)
     camera.zoom = 1.0f;
 
     int zoomMode = 0;       // 0-Mouse Wheel, 1-Mouse Move
+    bool showObjects = false;
 
     SetTargetFPS(60);       // Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------
@@ -57,6 +58,9 @@ int main(void)
         //----------------------------------------------------------------------------------
         if (IsKeyPressed(KEY_ONE)) zoomMode = 0;
         else if (IsKeyPressed(KEY_TWO)) zoomMode = 1;
+        if (IsKeyPressed(KEY_O)) showObjects = !showObjects;
+
+        map.Update(GetFrameTime());
 
         // Translate based on mouse right click
         if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
@@ -130,6 +134,7 @@ int main(void)
         rlPopMatrix();
 
         map.Draw();
+        if (showObjects) map.DrawObjectsDebug();
         EndMode2D();
 
         // Draw mouse reference
@@ -141,6 +146,7 @@ int main(void)
         DrawText("[1][2] Select mouse zoom mode (Wheel or Move)", 20, 20, 20, DARKGRAY);
         if (zoomMode == 0) DrawText("Mouse left button drag to move, mouse wheel to zoom", 20, 50, 20, DARKGRAY);
         else DrawText("Mouse left button drag to move, mouse press and move to zoom", 20, 50, 20, DARKGRAY);
+        DrawText("[O] Toggle objects", 20, 80, 20, DARKGRAY);
 
         EndDrawing();
         //----------------------------------------------------------------------------------

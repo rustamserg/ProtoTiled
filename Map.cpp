@@ -2,6 +2,8 @@
 #include "tinyxml.h"
 
 #include <algorithm>
+#include <cmath>
+#include <cstring>
 
 
 bool Map::LoadFromFile(const char* filename)
@@ -30,6 +32,14 @@ void Map::Unload()
     }
     m_tilesets.clear();
     m_layers.clear();
+    m_objectGroups.clear();
+    m_drawOrder.clear();
+    m_time = 0.0;
+}
+
+void Map::Update(float deltaTime)
+{
+    m_time += deltaTime;
 }
 
 bool Map::Parse(const char* mapXml, const std::string& baseDir)
@@ -68,14 +78,29 @@ bool Map::Parse(const char* mapXml, const std::string& baseDir)
     std::sort(m_tilesets.begin(), m_tilesets.end(),
         [](const TilesetRef& a, const TilesetRef& b) { return a.firstGid < b.firstGid; });
 
-    for (auto layerElement = root->FirstChildElement("layer"); layerElement; layerElement = layerElement->NextSiblingElement("layer"))
+    // tile layers and object groups share the draw order they have in the file
+    for (auto element = root->FirstChildElement(); element; element = element->NextSiblingElement())
     {
-        TileLayer layer;
-        if (!layer.Parse(layerElement))
+        if (strcmp(element->Value(), "layer") == 0)
         {
-            return false;
+            TileLayer layer;
+            if (!layer.Parse(element))
+            {
+                return false;
+            }
+            m_drawOrder.push_back({ LayerKind::Tiles, m_layers.size() });
+            m_layers.push_back(std::move(layer));
         }
-        m_layers.push_back(std::move(layer));
+        else if (strcmp(element->Value(), "objectgroup") == 0)
+        {
+            ObjectGroup group;
+            if (!group.Parse(element))
+            {
+                return false;
+            }
+            m_drawOrder.push_back({ LayerKind::Objects, m_objectGroups.size() });
+            m_objectGroups.push_back(std::move(group));
+        }
     }
     return true;
 }
@@ -87,6 +112,18 @@ const TileLayer* Map::FindLayer(const std::string& name) const
         if (layer.GetName() == name)
         {
             return &layer;
+        }
+    }
+    return nullptr;
+}
+
+const ObjectGroup* Map::FindObjectGroup(const std::string& name) const
+{
+    for (const auto& group : m_objectGroups)
+    {
+        if (group.GetName() == name)
+        {
+            return &group;
         }
     }
     return nullptr;
@@ -112,9 +149,16 @@ const Map::TilesetRef* Map::FindTileset(uint32_t gid) const
 
 void Map::Draw() const
 {
-    for (const auto& layer : m_layers)
+    for (const auto& entry : m_drawOrder)
     {
-        DrawLayer(layer);
+        if (entry.kind == LayerKind::Tiles)
+        {
+            DrawLayer(m_layers[entry.index]);
+        }
+        else
+        {
+            DrawObjectGroup(m_objectGroups[entry.index]);
+        }
     }
 }
 
@@ -131,15 +175,97 @@ void Map::DrawLayer(const TileLayer& layer) const
         for (int x = 0; x < layer.GetWidth(); ++x)
         {
             const auto cell = layer.GetCell(x, y);
-            if (cell.gid != 0)
+            if (cell.gid == 0)
             {
-                DrawTile(cell, x, y, tint);
+                continue;
+            }
+
+            // tiles are aligned to the bottom-left corner of the cell and keep their own size
+            const Vector2 bottomLeft = { static_cast<float>(x * m_tileWidth), static_cast<float>((y + 1) * m_tileHeight) };
+            DrawTile(cell, bottomLeft, { 0.0f, 0.0f }, 0.0f, tint);
+        }
+    }
+}
+
+void Map::DrawObjectGroup(const ObjectGroup& group) const
+{
+    if (!group.IsVisible())
+    {
+        return;
+    }
+
+    // only tile objects have visual representation, other shapes are game data
+    const Color tint = Fade(WHITE, group.GetOpacity());
+    for (const auto& object : group.GetObjects())
+    {
+        if (object.gid == 0 || !object.visible)
+        {
+            continue;
+        }
+
+        // tile object is anchored at bottom-left and stretched to object size
+        DrawTile(TileLayer::DecodeGid(object.gid), { object.x, object.y }, { object.width, object.height }, object.rotation, tint);
+    }
+}
+
+void Map::DrawObjectsDebug() const
+{
+    const Color color = RED;
+    for (const auto& group : m_objectGroups)
+    {
+        for (const auto& object : group.GetObjects())
+        {
+            const Vector2 position = { object.x, object.y };
+            switch (object.shape)
+            {
+            case ObjectGroup::Shape::Rectangle:
+                if (object.gid != 0)
+                {
+                    // tile objects are anchored at bottom-left
+                    DrawRectanglePro({ object.x, object.y, object.width, object.height }, { 0.0f, object.height }, object.rotation, Fade(color, 0.2f));
+                }
+                else if (object.width > 0.0f && object.height > 0.0f)
+                {
+                    DrawRectanglePro({ object.x, object.y, object.width, object.height }, { 0.0f, 0.0f }, object.rotation, Fade(color, 0.2f));
+                }
+                else
+                {
+                    // Tiled draws rectangles without size as points
+                    DrawCircleV(position, 3.0f, color);
+                }
+                break;
+            case ObjectGroup::Shape::Ellipse:
+                DrawEllipseLines(static_cast<int>(object.x + object.width / 2.0f), static_cast<int>(object.y + object.height / 2.0f),
+                    object.width / 2.0f, object.height / 2.0f, color);
+                break;
+            case ObjectGroup::Shape::Point:
+                DrawCircleV(position, 3.0f, color);
+                break;
+            case ObjectGroup::Shape::Polygon:
+            case ObjectGroup::Shape::Polyline:
+            {
+                const size_t count = object.points.size();
+                const size_t segments = object.shape == ObjectGroup::Shape::Polygon ? count : count - 1;
+                for (size_t i = 0; i < segments; ++i)
+                {
+                    const auto& a = object.points[i];
+                    const auto& b = object.points[(i + 1) % count];
+                    DrawLineEx({ position.x + a.x, position.y + a.y }, { position.x + b.x, position.y + b.y }, 1.0f, color);
+                }
+                break;
+            }
+            }
+
+            const std::string& label = object.name.empty() ? object.type : object.name;
+            if (!label.empty())
+            {
+                DrawText(label.c_str(), static_cast<int>(object.x), static_cast<int>(object.y) - 10, 10, color);
             }
         }
     }
 }
 
-void Map::DrawTile(const TileLayer::Cell& cell, int x, int y, Color tint) const
+void Map::DrawTile(const TileLayer::Cell& cell, Vector2 bottomLeft, Vector2 size, float rotation, Color tint) const
 {
     const auto ref = FindTileset(cell.gid);
     if (!ref)
@@ -155,28 +281,17 @@ void Map::DrawTile(const TileLayer::Cell& cell, int x, int y, Color tint) const
     }
 
     // pick current animation frame if the tile is animated
-    const Tileset::Tile* tile = &tileset.GetTile(localId);
-    if (!tile->animation.empty())
+    const int frameId = tileset.GetAnimationFrame(localId, static_cast<int>(m_time * 1000.0));
+    if (frameId < 0 || frameId >= tileset.GetTileCount())
     {
-        int totalDuration = 0;
-        for (const auto& frame : tile->animation)
-        {
-            totalDuration += frame.duration;
-        }
+        return;
+    }
+    const auto& tile = tileset.GetTile(frameId);
 
-        if (totalDuration > 0)
-        {
-            int time = static_cast<int>(GetTime() * 1000.0) % totalDuration;
-            for (const auto& frame : tile->animation)
-            {
-                if (time < frame.duration)
-                {
-                    tile = &tileset.GetTile(frame.tileId);
-                    break;
-                }
-                time -= frame.duration;
-            }
-        }
+    // zero size means the tile's own size
+    if (size.x <= 0.0f || size.y <= 0.0f)
+    {
+        size = { static_cast<float>(tile.width), static_cast<float>(tile.height) };
     }
 
     // Tiled flips: diagonal flip is a transpose, then horizontal/vertical flips are applied.
@@ -184,27 +299,33 @@ void Map::DrawTile(const TileLayer::Cell& cell, int x, int y, Color tint) const
     // with a vertical source flip, and post-rotation flips swap their axes.
     bool flipX = cell.flippedHorizontally;
     bool flipY = cell.flippedVertically;
-    float rotation = 0.0f;
+    float flipRotation = 0.0f;
     if (cell.flippedDiagonally)
     {
-        rotation = 90.0f;
+        flipRotation = 90.0f;
         flipX = cell.flippedVertically;
         flipY = !cell.flippedHorizontally;
     }
 
-    const float width = static_cast<float>(tile->width);
-    const float height = static_cast<float>(tile->height);
+    const float tileWidth = static_cast<float>(tile.width);
+    const float tileHeight = static_cast<float>(tile.height);
     const Rectangle source = {
-        static_cast<float>(tile->x),
-        static_cast<float>(tile->y),
-        flipX ? -width : width,
-        flipY ? -height : height
+        static_cast<float>(tile.x),
+        static_cast<float>(tile.y),
+        flipX ? -tileWidth : tileWidth,
+        flipY ? -tileHeight : tileHeight
     };
 
-    // tiles are aligned to the bottom-left corner of the cell, rotate around the tile center
-    const float left = static_cast<float>(x * m_tileWidth);
-    const float bottom = static_cast<float>((y + 1) * m_tileHeight);
-    const Rectangle dest = { left + width / 2.0f, bottom - height / 2.0f, width, height };
+    // object rotation is around bottom-left corner, flip rotation around tile center:
+    // rotate the center around the corner and spin the tile around its center by both angles
+    const float radians = rotation * DEG2RAD;
+    const float halfX = size.x / 2.0f;
+    const float halfY = -size.y / 2.0f;
+    const Vector2 center = {
+        bottomLeft.x + halfX * cosf(radians) - halfY * sinf(radians),
+        bottomLeft.y + halfX * sinf(radians) + halfY * cosf(radians)
+    };
 
-    DrawTexturePro(tileset.GetTexture(), source, dest, { width / 2.0f, height / 2.0f }, rotation, tint);
+    const Rectangle dest = { center.x, center.y, size.x, size.y };
+    DrawTexturePro(tileset.GetTexture(), source, dest, { halfX, size.y / 2.0f }, rotation + flipRotation, tint);
 }

@@ -38,7 +38,10 @@ public:
     bool IsInside(int x, int y) const { return x >= 0 && y >= 0 && x < m_width && y < m_height; }
     uint32_t GetRawGid(int x, int y) const { return m_data[y * m_width + x]; }
     uint32_t GetGid(int x, int y) const { return GetRawGid(x, y) & ~FLAGS_MASK; }
-    Cell GetCell(int x, int y) const;
+    Cell GetCell(int x, int y) const { return DecodeGid(GetRawGid(x, y)); }
+
+    // splits raw gid into tile gid and flip flags
+    static Cell DecodeGid(uint32_t rawGid);
 
 private:
     bool ParseCsv(const char* text);

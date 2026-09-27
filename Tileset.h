@@ -23,6 +23,7 @@ public:
         int height;
         std::string type;
         std::vector<Frame> animation;
+        int animationDuration;  // sum of frame durations in milliseconds
     };
 
 public:
@@ -31,6 +32,9 @@ public:
     const std::string& GetName() const { return m_name; }
     const Tile& GetTile(int id) const { return m_tiles[id]; }
     int GetTileCount() const { return static_cast<int>(m_tiles.size()); }
+
+    // returns id of the tile to display at given time, tile itself for non animated tiles
+    int GetAnimationFrame(int id, int timeMs) const;
     const Texture2D& GetTexture() const { return m_texture; }
 
 private:
