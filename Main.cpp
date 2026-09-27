@@ -4,7 +4,7 @@
 #include "raymath.h"
 #include "resource_dir.h"
 
-#include "Tileset.h"
+#include "Map.h"
 
 
 int main(void)
@@ -19,17 +19,23 @@ int main(void)
     Camera2D camera = { 0 };
     camera.zoom = 1.0f;
 
-    int zoomMode = 0;
-    SetTargetFPS(60);
+    int zoomMode = 0;       // 0-Mouse Wheel, 1-Mouse Move
+    bool showObjects = false;
 
-    Tileset tileset;
-    tileset.LoadFromFile("Dungeon.tsx");
+    SetTargetFPS(60);       // Set our game to run at 60 frames-per-second
+    //--------------------------------------------------------------------------------------
+
+    Map map;
+    map.LoadFromFile("map.tmx");
 
     // Main game loop
     while (!WindowShouldClose())
     {
         if (IsKeyPressed(KEY_ONE)) zoomMode = 0;
         else if (IsKeyPressed(KEY_TWO)) zoomMode = 1;
+        if (IsKeyPressed(KEY_O)) showObjects = !showObjects;
+
+        map.Update(GetFrameTime());
 
         if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
         {
@@ -80,6 +86,9 @@ int main(void)
         DrawGrid(100, 50);
         rlPopMatrix();
 
+        map.Draw();
+        if (showObjects) map.DrawObjectsDebug();
+
         const auto& tile = tileset.GetTile(45);
         DrawTextureRec(tileset.GetTexture(), { (float)tile.x, (float)tile.y, (float)tile.width, (float)tile.height }, { GetScreenWidth() / 2.f, GetScreenHeight() / 2.f }, WHITE);
         EndMode2D();
@@ -91,11 +100,16 @@ int main(void)
         DrawText("[1][2] Select mouse zoom mode (Wheel or Move)", 20, 20, 20, DARKGRAY);
         if (zoomMode == 0) DrawText("Mouse left button drag to move, mouse wheel to zoom", 20, 50, 20, DARKGRAY);
         else DrawText("Mouse left button drag to move, mouse press and move to zoom", 20, 50, 20, DARKGRAY);
+        DrawText("[O] Toggle objects", 20, 80, 20, DARKGRAY);
 
         EndDrawing();
     }
 
-    CloseWindow();
+    // De-Initialization
+    //--------------------------------------------------------------------------------------
+    map.Unload();
+    CloseWindow();        // Close window and OpenGL context
+    //--------------------------------------------------------------------------------------
 
     return 0;
 }

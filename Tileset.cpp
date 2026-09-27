@@ -6,8 +6,10 @@ bool Tileset::LoadFromFile(const char* filename)
 {
     if (FileExists(filename))
     {
-        const char* xml = LoadFileText(filename);
-        return Parse(xml);
+        char* xml = LoadFileText(filename);
+        const bool result = Parse(xml);
+        UnloadFileText(xml);
+        return result;
     }
     return false;
 }
@@ -68,10 +70,31 @@ bool Tileset::Parse(const char* tileXml)
                 animChild->ToElement()->QueryIntAttribute("duration", &animDuration);
 
                 m_tiles[tileId].animation.push_back({ .tileId = animTileId, .duration = animDuration });
+                m_tiles[tileId].animationDuration += animDuration;
                 animChild = animRoot->IterateChildren("frame", animChild);
             }
         }
         tileChild = doc.RootElement()->IterateChildren("tile", tileChild);
     }
     return true;
+}
+
+int Tileset::GetAnimationFrame(int id, int timeMs) const
+{
+    const auto& tile = m_tiles[id];
+    if (tile.animationDuration <= 0)
+    {
+        return id;
+    }
+
+    int time = timeMs % tile.animationDuration;
+    for (const auto& frame : tile.animation)
+    {
+        if (time < frame.duration)
+        {
+            return frame.tileId;
+        }
+        time -= frame.duration;
+    }
+    return id;
 }
