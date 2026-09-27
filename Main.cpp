@@ -21,7 +21,7 @@
 #include "raymath.h"
 #include "resource_dir.h"
 
-#include "Tileset.h"
+#include "Map.h"
 
 //------------------------------------------------------------------------------------
 // Program main entry point
@@ -47,8 +47,8 @@ int main(void)
     //--------------------------------------------------------------------------------------
 
 
-    Tileset tileset;
-    tileset.LoadFromFile("Dungeon.tsx");
+    Map map;
+    map.LoadFromFile("map.tmx");
 
     // Main game loop
     while (!WindowShouldClose())        // Detect window close button or ESC key
@@ -129,10 +129,7 @@ int main(void)
         DrawGrid(100, 50);
         rlPopMatrix();
 
-        // Draw a reference circle
-        //DrawCircle(GetScreenWidth() / 2, GetScreenHeight() / 2, 50, MAROON);
-        const auto& tile = tileset.GetTile(45);
-        DrawTextureRec(tileset.GetTexture(), { (float)tile.x, (float)tile.y, (float)tile.width, (float)tile.height }, { GetScreenWidth() / 2.f, GetScreenHeight() / 2.f }, WHITE);
+        map.Draw();
         EndMode2D();
 
         // Draw mouse reference
@@ -151,6 +148,7 @@ int main(void)
 
     // De-Initialization
     //--------------------------------------------------------------------------------------
+    map.Unload();
     CloseWindow();        // Close window and OpenGL context
     //--------------------------------------------------------------------------------------
 

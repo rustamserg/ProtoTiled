@@ -30,6 +30,7 @@ public:
 
     const std::string& GetName() const { return m_name; }
     const Tile& GetTile(int id) const { return m_tiles[id]; }
+    int GetTileCount() const { return static_cast<int>(m_tiles.size()); }
     const Texture2D& GetTexture() const { return m_texture; }
 
 private:
