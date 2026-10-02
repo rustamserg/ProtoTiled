@@ -1,63 +1,63 @@
 #pragma once
 
-#include <cstdint>
-#include <string>
-#include <unordered_map>
-#include <vector>
+#include <stdint.h>
 
 #include "raylib.h"
 
-class TiXmlElement;
+#include "Xml.h"
 
-class ObjectGroup
+typedef enum ObjectShape : uint8_t
 {
-public:
-    enum class Shape
-    {
-        Rectangle,
-        Ellipse,
-        Point,
-        Polygon,
-        Polyline,
-    };
+    OBJECT_SHAPE_RECTANGLE,
+    OBJECT_SHAPE_ELLIPSE,
+    OBJECT_SHAPE_POINT,
+    OBJECT_SHAPE_POLYGON,
+    OBJECT_SHAPE_POLYLINE,
+} ObjectShape;
 
-    struct Object
-    {
-        int id = 0;
-        std::string name;
-        std::string type;
-        float x = 0.0f;
-        float y = 0.0f;
-        float width = 0.0f;
-        float height = 0.0f;
-        float rotation = 0.0f;  // degrees, clockwise
-        uint32_t gid = 0;       // raw gid with flip flags, non zero for tile objects
-        bool visible = true;
-        Shape shape = Shape::Rectangle;
-        std::vector<Vector2> points;    // polygon/polyline points relative to (x, y)
-        std::unordered_map<std::string, std::string> properties;
-    };
+typedef struct ObjectProperty
+{
+    char* name;
+    char* value;
+} ObjectProperty;
 
-public:
-    bool Parse(const TiXmlElement* groupElement);
+typedef struct MapObject
+{
+    int id;
+    char* name;                 // nullptr when not set
+    char* type;                 // nullptr when not set
+    float x;
+    float y;
+    float width;
+    float height;
+    float rotation;             // degrees, clockwise
+    uint32_t gid;               // raw gid with flip flags, non zero for tile objects
+    bool visible;
+    ObjectShape shape;
+    Vector2* points;            // polygon/polyline points relative to (x, y)
+    int pointCount;
+    ObjectProperty* properties;
+    int propertyCount;
+} MapObject;
 
-    int GetId() const { return m_id; }
-    const std::string& GetName() const { return m_name; }
-    bool IsVisible() const { return m_visible; }
-    float GetOpacity() const { return m_opacity; }
+typedef struct ObjectGroup
+{
+    int id;
+    char* name;                 // nullptr when not set
+    bool visible;
+    float opacity;
+    MapObject* objects;
+    int objectCount;
+} ObjectGroup;
 
-    const std::vector<Object>& GetObjects() const { return m_objects; }
-    const Object* FindObject(const std::string& name) const;
-    std::vector<const Object*> FindObjectsByType(const std::string& type) const;
+// on failure the group is left empty, nothing has to be unloaded
+[[nodiscard]] bool ParseObjectGroup(ObjectGroup* group, const XmlElement* groupElement);
+void UnloadObjectGroup(ObjectGroup* group);
 
-private:
-    static bool ParseObject(const TiXmlElement* objectElement, Object& object);
-    static bool ParsePoints(const char* text, std::vector<Vector2>& points);
+[[nodiscard]] const MapObject* FindObject(const ObjectGroup* group, const char* name);
 
-private:
-    int m_id = 0;
-    std::string m_name;
-    bool m_visible = true;
-    float m_opacity = 1.0f;
-    std::vector<Object> m_objects;
-};
+// stores up to capacity matching objects into result and returns the total number of matches
+int FindObjectsByType(const ObjectGroup* group, const char* type, const MapObject** result, int capacity);
+
+// returns property value or nullptr if the object has no such property
+[[nodiscard]] const char* GetObjectProperty(const MapObject* object, const char* name);

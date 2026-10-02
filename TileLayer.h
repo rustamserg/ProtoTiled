@@ -1,58 +1,59 @@
 #pragma once
 
-#include <cstdint>
-#include <string>
-#include <vector>
+#include <stdint.h>
 
-class TiXmlElement;
+#include "Xml.h"
 
-class TileLayer
+// Tiled stores flip/rotation flags in the highest bits of each gid
+static constexpr uint32_t FLIPPED_HORIZONTALLY_FLAG = 0x8000'0000;
+static constexpr uint32_t FLIPPED_VERTICALLY_FLAG = 0x4000'0000;
+static constexpr uint32_t FLIPPED_DIAGONALLY_FLAG = 0x2000'0000;
+static constexpr uint32_t ROTATED_HEXAGONAL_120_FLAG = 0x1000'0000;
+static constexpr uint32_t GID_FLAGS_MASK = FLIPPED_HORIZONTALLY_FLAG | FLIPPED_VERTICALLY_FLAG | FLIPPED_DIAGONALLY_FLAG | ROTATED_HEXAGONAL_120_FLAG;
+
+typedef struct TileCell
 {
-public:
-    // Tiled stores flip/rotation flags in the highest bits of each gid
-    static constexpr uint32_t FLIPPED_HORIZONTALLY_FLAG = 0x80000000;
-    static constexpr uint32_t FLIPPED_VERTICALLY_FLAG = 0x40000000;
-    static constexpr uint32_t FLIPPED_DIAGONALLY_FLAG = 0x20000000;
-    static constexpr uint32_t ROTATED_HEXAGONAL_120_FLAG = 0x10000000;
-    static constexpr uint32_t FLAGS_MASK = FLIPPED_HORIZONTALLY_FLAG | FLIPPED_VERTICALLY_FLAG | FLIPPED_DIAGONALLY_FLAG | ROTATED_HEXAGONAL_120_FLAG;
+    uint32_t gid;               // global tile id without flags, 0 means empty cell
+    bool flippedHorizontally;
+    bool flippedVertically;
+    bool flippedDiagonally;
+} TileCell;
 
-    struct Cell
-    {
-        uint32_t gid;   // global tile id without flags, 0 means empty cell
-        bool flippedHorizontally;
-        bool flippedVertically;
-        bool flippedDiagonally;
-    };
+typedef struct TileLayer
+{
+    int id;
+    char* name;                 // nullptr when not set
+    int width;
+    int height;
+    bool visible;
+    bool locked;
+    float opacity;
+    uint32_t* data;             // raw gids with flags, row by row
+} TileLayer;
 
-public:
-    bool Parse(const TiXmlElement* layerElement);
+// on failure the layer is left empty, nothing has to be unloaded
+[[nodiscard]] bool ParseTileLayer(TileLayer* layer, const XmlElement* layerElement);
+void UnloadTileLayer(TileLayer* layer);
 
-    int GetId() const { return m_id; }
-    const std::string& GetName() const { return m_name; }
-    int GetWidth() const { return m_width; }
-    int GetHeight() const { return m_height; }
-    bool IsVisible() const { return m_visible; }
-    bool IsLocked() const { return m_locked; }
-    float GetOpacity() const { return m_opacity; }
+// splits raw gid into tile gid and flip flags
+[[nodiscard]] TileCell DecodeGid(uint32_t rawGid);
 
-    bool IsInside(int x, int y) const { return x >= 0 && y >= 0 && x < m_width && y < m_height; }
-    uint32_t GetRawGid(int x, int y) const { return m_data[y * m_width + x]; }
-    uint32_t GetGid(int x, int y) const { return GetRawGid(x, y) & ~FLAGS_MASK; }
-    Cell GetCell(int x, int y) const { return DecodeGid(GetRawGid(x, y)); }
+[[nodiscard]] static inline bool IsInsideTileLayer(const TileLayer* layer, int x, int y)
+{
+    return x >= 0 && y >= 0 && x < layer->width && y < layer->height;
+}
 
-    // splits raw gid into tile gid and flip flags
-    static Cell DecodeGid(uint32_t rawGid);
+[[nodiscard]] static inline uint32_t GetTileLayerRawGid(const TileLayer* layer, int x, int y)
+{
+    return layer->data[(size_t)y * (size_t)layer->width + (size_t)x];
+}
 
-private:
-    bool ParseCsv(const char* text);
+[[nodiscard]] static inline uint32_t GetTileLayerGid(const TileLayer* layer, int x, int y)
+{
+    return GetTileLayerRawGid(layer, x, y) & ~GID_FLAGS_MASK;
+}
 
-private:
-    int m_id = 0;
-    std::string m_name;
-    int m_width = 0;
-    int m_height = 0;
-    bool m_visible = true;
-    bool m_locked = false;
-    float m_opacity = 1.0f;
-    std::vector<uint32_t> m_data;
-};
+[[nodiscard]] static inline TileCell GetTileLayerCell(const TileLayer* layer, int x, int y)
+{
+    return DecodeGid(GetTileLayerRawGid(layer, x, y));
+}
