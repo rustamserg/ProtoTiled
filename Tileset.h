@@ -1,48 +1,39 @@
 #pragma once
 
-#include <string>
-#include <vector>
+#include <stdint.h>
 
 #include "raylib.h"
 
-class Tileset
+typedef struct TilesetFrame
 {
-public:
-    struct Frame
-    {
-        int tileId;
-        int duration;
-    };
+    int tileId;
+    int duration;               // milliseconds
+} TilesetFrame;
 
-    struct Tile
-    {
-        int id;
-        int x;
-        int y;
-        int width;
-        int height;
-        std::string type;
-        std::vector<Frame> animation;
-        int animationDuration;  // sum of frame durations in milliseconds
-    };
+typedef struct TilesetTile
+{
+    int id;
+    int x;
+    int y;
+    int width;
+    int height;
+    char* type;                 // nullptr when not set
+    TilesetFrame* animation;
+    int animationCount;
+    int animationDuration;      // sum of frame durations in milliseconds
+} TilesetTile;
 
-public:
-    bool LoadFromFile(const char* filename);
+typedef struct Tileset
+{
+    char* name;
+    TilesetTile* tiles;
+    int tileCount;
+    Texture2D texture;
+} Tileset;
 
-    const std::string& GetName() const { return m_name; }
-    const Tile& GetTile(int id) const { return m_tiles[id]; }
-    int GetTileCount() const { return static_cast<int>(m_tiles.size()); }
+// image source is resolved relative to the tileset file
+[[nodiscard]] bool LoadTileset(Tileset* tileset, const char* filename);
+void UnloadTileset(Tileset* tileset);
 
-    // returns id of the tile to display at given time, tile itself for non animated tiles
-    int GetAnimationFrame(int id, int timeMs) const;
-    const Texture2D& GetTexture() const { return m_texture; }
-
-private:
-    bool Parse(const char* tileXml);
-
-private:
-    std::string m_name;
-    std::vector<Tile> m_tiles;
-    Texture2D m_texture;
-};
-
+// returns id of the tile to display at given time, tile itself for non animated tiles
+[[nodiscard]] int GetTilesetAnimationFrame(const Tileset* tileset, int id, int64_t timeMs);
